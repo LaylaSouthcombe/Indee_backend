@@ -1,5 +1,4 @@
-// const db = require('../dbConfig/init');
-const pool = require('../dbConfig/init');
+const db = require('../dbConfig/init');
 
 module.exports = class Carer {
     constructor(data){
@@ -13,10 +12,8 @@ module.exports = class Carer {
     static async create( {fname, sname, email, password}) {
         return new Promise (async (resolve, reject) => {
             try {
-                const db = await pool.connect();
                 const result = await db.query('INSERT INTO carers (first_name, second_name, password_digest, email) VALUES ($1, $2, $3, $4) RETURNING *;', [fname, sname, password, email])
                 const carer = new Carer(result.rows[0]);
-                db.release()
                 resolve(carer)
             }catch(err){
                 reject("Carer account could not be created");
@@ -27,7 +24,6 @@ module.exports = class Carer {
     static async findCarersByNameOrEmail(searchText){
         return new Promise (async (resolve, reject) => {
             try {
-                const db = await pool.connect();
                 let carers;
                 if(searchText.indexOf(" ") !== -1){
                     let spaceIndex = searchText.indexOf(" ")
@@ -41,7 +37,6 @@ module.exports = class Carer {
                     const result = await db.query('SELECT * FROM carers WHERE first_name ILIKE $1 OR second_name ILIKE $1 OR email ILIKE $1', [ newSearchTerm]);
                     carers = result.rows
                 }
-                db.release()
                 resolve(carers)
             }catch(err){
                 reject("Error finding carers");
@@ -52,7 +47,6 @@ module.exports = class Carer {
     static async getUsersAndTopline({user_id}){
         return new Promise (async (resolve, reject) => {
             try {
-                const db = await pool.connect();
                 let dataToDisplay = []
                 const results = await db.query('SELECT * FROM carers JOIN users on carers.id = users.carer_id WHERE carers.id = $1 ORDER BY (last_login) DESC', [user_id]);
                 for(let i = 0; i < results.rows.length; i++){
@@ -83,7 +77,6 @@ module.exports = class Carer {
                     second_name, "percentCompleted": percentCompleted, "user_id": results.rows[i].id}
                     dataToDisplay.push(obj)
                 }
-                db.release()
                 resolve(dataToDisplay);
             } catch (err) {
                 reject("Carer's users and user info could not be found");
