@@ -1,4 +1,5 @@
-const db = require('../dbConfig/init');
+// const db = require('../dbConfig/init');
+const pool = require('../dbConfig/init');
 
 module.exports = class Habit {
     constructor(data){
@@ -15,9 +16,11 @@ module.exports = class Habit {
     static getUsersHabitsAndCurrent(user_id){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const blnHabitData = await db.query('SELECT * FROM habits_info JOIN boolean_entries ON habits_info.id = boolean_entries.habit_bln_id WHERE user_id = $1 AND type = $2 AND date = CURRENT_DATE ORDER BY (date) DESC;', [ user_id, "boolean" ]);
                 const intHabitData = await db.query('SELECT * FROM habits_info JOIN int_entries ON habits_info.id = int_entries.habit_int_id WHERE user_id = $1 AND type = $2 AND date = CURRENT_DATE ORDER BY (date) DESC;', [ user_id, "int" ]);
                 let habitsData = blnHabitData.rows.concat(intHabitData.rows)
+                db.release()
                 resolve(habitsData);
             } catch (err) {
                 reject('habits not found');
@@ -28,6 +31,7 @@ module.exports = class Habit {
     static async create(habitData){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const { user_id, type, description, freq_unit, freq_value, goal } = habitData;
                 let result = await db.query(`INSERT INTO habits_info (user_id, type, description, freq_unit, freq_value, goal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;`, [ user_id, type, description, freq_unit, freq_value, goal])
                 if(type === "int"){
@@ -38,6 +42,7 @@ module.exports = class Habit {
                     await db.query(`INSERT INTO boolean_entries (habit_bln_id, habit_bln_entry) VALUES ($1, false);`, [result.rows[0].id]);
                     console.log("data entered for bln habit", result.rows[0].id)
                 }
+                db.release()
                 resolve (result.rows[0]);
             } catch (err) {
                 reject('habit could not be created');
@@ -48,6 +53,7 @@ module.exports = class Habit {
     static async update(habitData){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const { user_id, type, description, freq_unit, freq_value, goal, id } = habitData;
                 let habitInfoId
                 if(type === "int"){
@@ -70,6 +76,7 @@ module.exports = class Habit {
                         await db.query(`DELETE FROM int_entries WHERE id = $1;`, [id]);
                     }
                 }
+                db.release()
                 resolve (result.rows[0]);
             } catch (err) {
                 reject('habit could not be updated');
@@ -80,6 +87,7 @@ module.exports = class Habit {
     static async destroy(habitData){
         return new Promise(async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const { habit_id, type } = habitData
                 let habitInfoId
                 if(type === "int"){
@@ -94,6 +102,7 @@ module.exports = class Habit {
                     await db.query('DELETE FROM boolean_entries WHERE habit_bln_id = $1;', [ habitInfoId ]);
                 }
                 await db.query('DELETE FROM habits_info WHERE id = $1;', [ habitInfoId ]);
+                db.release()
                 resolve('habit was deleted')
             } catch (err) {
                 reject('habit could not be deleted')

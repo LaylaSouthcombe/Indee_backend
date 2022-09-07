@@ -1,4 +1,5 @@
-const db = require('../dbConfig/init');
+// const db = require('../dbConfig/init');
+const pool = require('../dbConfig/init');
 
 const Request = require('./Request')
 
@@ -16,8 +17,10 @@ module.exports = class User {
     static async create({fname, sname, password, email}) {
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const result = await db.query('INSERT INTO users (first_name, second_name, password_digest, email) VALUES ($1, $2, $3, $4) RETURNING *;', [fname, sname, password, email])
                 const user = new User(result.rows[0]);
+                db.release()
                 resolve(user)
             }catch(err){
                 reject("User account could not be created");
@@ -28,8 +31,10 @@ module.exports = class User {
     static async updateLoginDate(userId){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 let todaysDate = new Date()
                 let result = await db.query(`UPDATE users SET last_login = $1 WHERE id = $2 RETURNING *;`, [ todaysDate, userId])
+                db.release()
                 resolve(result.rows[0].last_login)
             }catch(err){
                 reject("Error assigning users");
@@ -40,6 +45,7 @@ module.exports = class User {
     static async findUsersSummary({user_id, number_of_days}) {
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const userInfo = await db.query('SELECT first_name, second_name, last_login FROM users WHERE id = $1;', [user_id])
                 if(number_of_days === "all time"){
                     let lastIntEntry = await db.query(`SELECT * FROM int_entries JOIN habits_info ON habits_info.id = int_entries.habit_int_id WHERE user_id = $1 ORDER BY (date) ASC LIMIT 1;`, [user_id]);
@@ -88,6 +94,7 @@ module.exports = class User {
                 
                 let obj = { "userFirstName": userInfo.rows[0].first_name, "userSecondName": userInfo.rows[0].second_name, "numOfHabitsCompleted": entriesData[1].complete, "numOfHabits": entriesData[1].total, "lastLogin": userInfo.rows[0].last_login, 
                 entriesData: entriesData, number_of_days: number_of_days}
+                db.release()
                 resolve(obj)
             }catch(err){
                 reject("Users habit history could not be found");
@@ -98,6 +105,7 @@ module.exports = class User {
     static async findUsersIndividualHabitsSummary({user_id, number_of_days}) {
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 let habitsInfo = await db.query('SELECT * FROM habits_info WHERE user_id = $1', [user_id]);
                 let dataArr = []
                 for(let k = 0; k < habitsInfo.rows.length; k++){
@@ -152,6 +160,7 @@ module.exports = class User {
                     dataArr.push({ habitId: habitsInfo.rows[k].id,  habitTitle: habitsInfo.rows[k].description, entriesData: entriesData})
                 }
                 let obj = { dataArr: dataArr, number_of_days: number_of_days}
+                db.release()
                 resolve(obj)
             }catch(err){
                 reject("Users habit history could not be found");
@@ -162,6 +171,7 @@ module.exports = class User {
     static async findUsersByNameOrEmail(searchText, carerId){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 let initialUsers;
                 if(searchText.indexOf(" ") !== -1){
                     let spaceIndex = searchText.indexOf(" ")
@@ -182,6 +192,7 @@ module.exports = class User {
                         users.push(initialUsers[i])
                     }
                 }
+                db.release()
                 resolve(users)
             }catch(err){
                 reject("Error finding users");
@@ -192,7 +203,9 @@ module.exports = class User {
     static async findUsersByEmail(searchText){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const result = await db.query('SELECT * FROM users WHERE email ILIKE $1;', [ searchText ]);
+                db.release()
                 resolve(result.rows)
             }catch(err){
                 reject("Error finding users");
@@ -203,8 +216,10 @@ module.exports = class User {
     static async addUserAsDependent(userId, carerId){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const result = await db.query('INSERT INTO requests (user_id, carer_id) VALUES ($1, $2) RETURNING *;', [userId, carerId])
                 const request = new Request(result.rows[0]);
+                db.release()
                 resolve(request)
             }catch(err){
                 reject("Error assigning users");

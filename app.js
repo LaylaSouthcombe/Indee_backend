@@ -5,7 +5,8 @@ const server = express();
 server.use(cors());
 server.use(express.json());
 
-const db = require('./dbConfig/init');
+// const db = require('./dbConfig/init');
+const pool = require('./dbConfig/init');
 
 const usersRoutes = require('./routes/users')
 const carersRoutes = require('./routes/carers')
@@ -31,6 +32,7 @@ server.get('/', (req, res) => res.send('Welcome to Indee'))
 async function addHabitEntryForEveryUser() {
     return new Promise (async (resolve, reject) => {
         try {
+            const db = await pool.connect();
             const users = await db.query(`SELECT * FROM users;`)
             for (i = 0; i < users.rows.length; i++) {
                 const habitsInfo = await db.query('SELECT * FROM habits_info WHERE user_id = $1', [users.rows[i].id]);
@@ -46,6 +48,7 @@ async function addHabitEntryForEveryUser() {
                 }
                 console.log(`user entries created for ${users.rows[i].id}`)    
             }
+            db.release()
             resolve(`User entries created for users`);
         } catch (err) {
             console.log(err);

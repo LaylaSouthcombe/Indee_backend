@@ -1,4 +1,5 @@
-const db = require('../dbConfig/init');
+// const db = require('../dbConfig/init');
+const pool = require('../dbConfig/init');
 
 module.exports = class Request {
     constructor(data){
@@ -11,6 +12,7 @@ module.exports = class Request {
     static async getAllRequests(userInfo){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const { userId, role } = userInfo
                 let results
                 if(role === "carer"){
@@ -19,6 +21,7 @@ module.exports = class Request {
                 if(role === "user"){
                     results = await db.query(`SELECT requests.id, requests.carer_id, requests.user_id, requests.date, requests.status, carers.first_name, carers.second_name FROM requests JOIN carers ON requests.carer_id = carers.id WHERE requests.user_id = $1;`, [userId])
                 }
+                db.release()
                 resolve(results.rows);
             } catch (err) {
                 reject("Error retrieving requests")
@@ -29,11 +32,13 @@ module.exports = class Request {
     static async acceptCarerRequest(request_id){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 const result = await db.query('SELECT * FROM requests WHERE id = $1;', [request_id])
                 const carer_id = result.rows[0].carer_id
                 const user_id = result.rows[0].user_id
                 await db.query('UPDATE requests SET status = $2 WHERE id = $1;', [request_id, "accepted"])
                 await db.query(`UPDATE users SET carer_id = $1 WHERE id = $2 RETURNING *;`, [ carer_id, user_id])
+                db.release()
                 resolve("Request accepted");
             } catch (err) {
                 reject("Error retrieving requests")
@@ -44,7 +49,9 @@ module.exports = class Request {
     static async declineCarerRequest(request_id){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 await db.query('UPDATE requests SET status = $2 WHERE id = $1;', [request_id, "declined"])
+                db.release()
                 resolve("Request declined");
             } catch (err) {
                 reject("Error retrieving requests")
@@ -55,8 +62,10 @@ module.exports = class Request {
     static async deleteCarerRequest(user_id, request_id){
         return new Promise (async (resolve, reject) => {
             try {
+                const db = await pool.connect();
                 await db.query('DELETE FROM requests WHERE id = $1;', [request_id])
                 await db.query(`UPDATE users SET carer_id = 0 WHERE id = $1 RETURNING *;`, [ user_id])
+                db.release()
                 resolve("Request deleted");
             } catch (err) {
                 reject("Error retrieving requests")
